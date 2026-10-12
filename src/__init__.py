@@ -3,8 +3,24 @@ src/__init__.py  –  Package initialiser.
 Loads central configuration from config/settings.yaml.
 """
 import os
+import sys
+import types
 import yaml
 import logging
+
+# Ensure Windows Application Control does not block optional sklearn native modules
+if sys.platform == "win32":
+    _blocked_mods = [
+        "sklearn.svm._libsvm_sparse",
+        "sklearn.svm._libsvm",
+        "sklearn.svm._liblinear",
+    ]
+    for _mod in _blocked_mods:
+        if _mod not in sys.modules:
+            try:
+                __import__(_mod)
+            except (ImportError, OSError):
+                sys.modules[_mod] = types.ModuleType(_mod)
 
 _CONFIG_PATH = os.path.join(
     os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
