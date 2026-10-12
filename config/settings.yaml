@@ -1,0 +1,72 @@
+# ============================================================
+# Shipment ETA & Delay Prediction – Central Configuration
+# ============================================================
+
+project:
+  name: "Shipment ETA & Delay Prediction"
+  version: "1.0.0"
+  random_seed: 42
+
+paths:
+  raw_data: "data/raw/logistics-shipment-delay-prediction.xlsx"
+  processed_data: "data/processed/shipments_cleaned.csv"
+  models_dir: "models"
+  reports_dir: "reports"
+  figures_dir: "reports/figures"
+
+data:
+  # Shipment ID column in the raw data
+  shipment_id_col: "shipment_id"
+  # Delay threshold in minutes (>0 = delayed)
+  delay_threshold_minutes: 0
+  # Test split ratio
+  test_size: 0.20
+  # Validation fold count
+  cv_folds: 5
+
+model:
+  eta:
+    # Models to train for ETA regression
+    candidates:
+      - "baseline_mean"
+      - "ridge"
+      - "random_forest"
+    # Random Forest hyperparameter grid (kept small for 145 samples)
+    rf_param_grid:
+      n_estimators: [50, 100, 200]
+      max_depth: [5, 10, null]
+      min_samples_leaf: [3, 5, 10]
+    ridge_alphas: [0.01, 0.1, 1.0, 10.0, 100.0]
+
+  classifier:
+    candidates:
+      - "logistic_regression"
+      - "random_forest"
+    rf_param_grid:
+      n_estimators: [50, 100]
+      max_depth: [3, 5, 10]
+      min_samples_leaf: [3, 5]
+
+propagation:
+  # Default stage definitions for the propagation engine
+  stages:
+    - name: "departure"
+      default_fraction: 0.0
+    - name: "transit"
+      default_fraction: 0.70
+    - name: "customs_processing"
+      default_fraction: 0.15
+    - name: "last_mile_delivery"
+      default_fraction: 0.15
+  # Weather delay multipliers (applied to stage duration)
+  weather_multipliers:
+    clear: 1.00
+    rain: 1.10
+    fog: 1.15
+    storm: 1.30
+    snow: 1.25
+    hail: 1.20
+
+logging:
+  level: "INFO"
+  format: "%(asctime)s [%(levelname)s] %(name)s: %(message)s"

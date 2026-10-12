@@ -1,0 +1,526 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GoodLogistic - Route Planner & Shipment ETA Prediction</title>
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Leaflet Map CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Leaflet JS -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+    <!-- Custom Style -->
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+
+
+
+    <!-- MAIN APP CONTAINER -->
+    <div class="app-layout">
+        
+        <!-- LEFT PANEL: ROUTE PLANNER -->
+        <aside class="left-sidebar" id="left-sidebar">
+            <h1 class="sidebar-title">Route Planner</h1>
+
+            <!-- Route Query Form -->
+            <form id="route-planner-form" class="planner-form" onsubmit="event.preventDefault(); handlePlanRoutes();">
+                <div class="input-group">
+                    <label for="input-from" class="input-icon-label">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="2.5"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg>
+                        From:
+                    </label>
+                    <input type="text" id="input-from" list="origin-cities" value="INDIA" placeholder="Origin country or city..." onchange="handlePlanRoutes();" required>
+                    <datalist id="origin-cities"></datalist>
+                </div>
+
+                <div class="input-group">
+                    <label for="input-to" class="input-icon-label">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="2.5"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg>
+                        To:
+                    </label>
+                    <input type="text" id="input-to" list="dest-cities" value="GERMANY" placeholder="Destination country or city..." onchange="handlePlanRoutes();" required>
+                    <datalist id="dest-cities"></datalist>
+                    <div class="quick-dest-pills" style="display: flex; gap: 6px; margin-top: 4px; font-size: 11px; align-items: center;">
+                        <span style="color: #64748b; font-size: 10.5px;">Quick:</span>
+                        <a href="javascript:void(0)" onclick="quickSelectCity('Germany')" style="color: #0284c7; text-decoration: underline; font-weight: 600;">Germany</a>
+                        <span style="color: #cbd5e1;">|</span>
+                        <a href="javascript:void(0)" onclick="quickSelectCity('USA')" style="color: #0284c7; text-decoration: underline; font-weight: 600;">USA</a>
+                        <span style="color: #cbd5e1;">|</span>
+                        <a href="javascript:void(0)" onclick="quickSelectCity('Chicago')" style="color: #0284c7; text-decoration: underline; font-weight: 600;">Chicago</a>
+                        <span style="color: #cbd5e1;">|</span>
+                        <a href="javascript:void(0)" onclick="quickSelectCity('Dublin')" style="color: #0284c7; text-decoration: underline; font-weight: 600;">Dublin</a>
+                    </div>
+                </div>
+
+                <div class="form-row-2">
+                    <div class="input-group inline">
+                        <label for="input-cbm">CBM</label>
+                        <input type="number" id="input-cbm" value="24" min="1" step="0.5">
+                    </div>
+                    <div class="input-group inline">
+                        <label for="input-wm">W/M</label>
+                        <input type="number" id="input-wm" value="12" min="1" step="0.5">
+                    </div>
+                </div>
+
+                <div class="form-row-between">
+                    <div class="input-group select-group">
+                        <label for="input-optimise">Optimise for:</label>
+                        <select id="input-optimise" onchange="handlePlanRoutes();">
+                            <option value="price" selected>Price</option>
+                            <option value="time">Time</option>
+                            <option value="reliability">Reliability</option>
+                        </select>
+                    </div>
+                    <button type="button" class="btn-link" id="toggle-options-btn" onclick="toggleAdvancedOptions();">more options</button>
+                </div>
+
+                <!-- Advanced Options Collapsible -->
+                <div id="advanced-options-drawer" class="advanced-drawer hidden">
+                    <div class="drawer-field">
+                        <label for="adv-weather">Departure Weather</label>
+                        <select id="adv-weather">
+                            <option value="clear">Clear</option>
+                            <option value="rain" selected>Rain</option>
+                            <option value="fog">Fog</option>
+                            <option value="storm">Storm</option>
+                            <option value="snow">Snow</option>
+                        </select>
+                    </div>
+                    <div class="drawer-field">
+                        <label for="adv-priority">Priority Level</label>
+                        <select id="adv-priority">
+                            <option value="standard" selected>Standard</option>
+                            <option value="express">Express</option>
+                            <option value="critical">Critical</option>
+                        </select>
+                    </div>
+                    <div class="drawer-field">
+                        <label for="adv-carrier-rate">Carrier Reliability Rate</label>
+                        <div class="slider-row">
+                            <input type="range" id="adv-carrier-rate" min="0.5" max="1.0" step="0.01" value="0.88" oninput="document.getElementById('carrier-val').innerText = Math.round(this.value*100) + '%';">
+                            <span id="carrier-val">88%</span>
+                        </div>
+                    </div>
+                </div>
+
+                <button type="submit" class="btn-primary-plan">Update Route Options</button>
+            </form>
+
+            <!-- Route Options List -->
+            <div class="route-options-container" id="route-options-list">
+                <!-- Dynamically rendered Route Option Cards -->
+                <div class="loading-spinner-box">Loading route options...</div>
+            </div>
+        </aside>
+        
+        <!-- DRAGGABLE SPLITTER / RESIZER -->
+        <div class="sidebar-resizer" id="sidebar-resizer" title="Drag to resize sidebar (double-click to reset)"></div>
+
+        <!-- RIGHT MAIN AREA: TABS & CONTENT -->
+        <main class="main-content" id="main-content">
+            
+            <!-- TABS BAR -->
+            <nav class="content-tabs" role="tablist">
+                <button class="tab-btn active" data-tab="tab-overview" onclick="switchTab('tab-overview')">Overview</button>
+                <button class="tab-btn" data-tab="tab-prediction" onclick="switchTab('tab-prediction')">Single Shipment Prediction</button>
+                <button class="tab-btn" data-tab="tab-simulation" onclick="switchTab('tab-simulation')">Delay Propagation Simulator</button>
+                <button class="tab-btn" data-tab="tab-evaluation" onclick="switchTab('tab-evaluation')">Model Evaluation</button>
+                <button class="tab-btn" data-tab="tab-explorer" onclick="switchTab('tab-explorer')">Data Explorer</button>
+            </nav>
+
+            <!-- TAB 1: OVERVIEW (MATCHES SCREENSHOT FORMAT) -->
+            <section id="tab-overview" class="tab-pane active">
+                
+                <!-- Dynamic Alert Banner -->
+                <div id="overview-alert-banner" class="alert-banner">
+                    <div class="alert-icon">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2">
+                            <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path>
+                            <line x1="12" y1="9" x2="12" y2="13"></line>
+                            <line x1="12" y1="17" x2="12.01" y2="17"></line>
+                        </svg>
+                    </div>
+                    <div class="alert-text" id="alert-banner-text">
+                        Due to combination of overloaded port Caen and a lot of construction sites on roads we expect <strong>12h delay</strong>.
+                    </div>
+                </div>
+
+                <!-- KPI Metrics Row -->
+                <div class="kpi-metrics-row">
+                    <div class="kpi-card">
+                        <span class="kpi-label">TYPICAL TIME</span>
+                        <span class="kpi-val" id="kpi-typical-time">1d 12h</span>
+                    </div>
+                    <div class="kpi-divider"></div>
+                    <div class="kpi-card">
+                        <span class="kpi-label">ESTIMATED TIME</span>
+                        <span class="kpi-val highlight-red" id="kpi-estimated-time">2d</span>
+                    </div>
+                    <div class="kpi-divider"></div>
+                    <div class="kpi-card">
+                        <span class="kpi-label"># DELIVERIES</span>
+                        <span class="kpi-val" id="kpi-deliveries">200</span>
+                    </div>
+                    <div class="kpi-divider"></div>
+                    <div class="kpi-card">
+                        <span class="kpi-label"># AVAILABLE CONTAINERS</span>
+                        <span class="kpi-val" id="kpi-containers">36</span>
+                    </div>
+                    <div class="kpi-divider"></div>
+                    <div class="kpi-card">
+                        <span class="kpi-label">AVG WAITING TIME</span>
+                        <span class="kpi-val" id="kpi-waiting-time">4h</span>
+                    </div>
+                    <div class="kpi-divider"></div>
+                    <div class="kpi-card">
+                        <span class="kpi-label">BOOKING ACCURACY</span>
+                        <span class="kpi-val highlight-red" id="kpi-accuracy">64%</span>
+                    </div>
+                    <div class="kpi-divider"></div>
+                    <div class="kpi-card">
+                        <span class="kpi-label">RELIABILITY</span>
+                        <span class="kpi-val" id="kpi-reliability">75%</span>
+                    </div>
+                </div>
+
+                <!-- Middle Charts Row -->
+                <div class="overview-charts-grid">
+                    
+                    <!-- Left: SLA Delivery Chart -->
+                    <div class="chart-card">
+                        <div class="chart-card-header">
+                            <span class="chart-title">SLA Delivery</span>
+                            <span class="chart-badge">AVERAGE</span>
+                        </div>
+                        <div class="chart-canvas-wrapper">
+                            <canvas id="chart-sla-delivery"></canvas>
+                        </div>
+                    </div>
+
+                    <!-- Right: Booking Accuracy Bar Chart -->
+                    <div class="chart-card">
+                        <div class="chart-card-header">
+                            <span class="chart-title">Booking Accuracy</span>
+                        </div>
+                        <div class="chart-canvas-wrapper">
+                            <canvas id="chart-booking-accuracy"></canvas>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Bottom: Interactive Map -->
+                <div class="map-container-card">
+                    <div id="route-map" class="interactive-map"></div>
+                    
+                    <!-- Floating Caen Port / Transit Hub Callout Card -->
+                    <div id="map-hub-callout" class="map-hub-callout">
+                        <div class="hub-callout-header">
+                            <span class="hub-callout-title" id="callout-hub-title">Caen Port</span>
+                        </div>
+                        <div class="hub-callout-body">
+                            <div class="hub-stat-row">
+                                <span class="hub-stat-label">Standard waiting time</span>
+                                <span class="hub-stat-val" id="callout-std-wait">3h</span>
+                            </div>
+                            <div class="hub-stat-row">
+                                <span class="hub-stat-label">Estimated waiting time</span>
+                                <span class="hub-stat-val highlight" id="callout-est-wait">6h</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+            </section>
+
+            <!-- TAB 2: SINGLE SHIPMENT PREDICTION -->
+            <section id="tab-prediction" class="tab-pane">
+                <div class="two-column-panel">
+                    <!-- Left: Feature Input Form -->
+                    <div class="panel-box">
+                        <h2 class="section-title">Shipment Details (Pre-Departure)</h2>
+                        <form id="prediction-form" onsubmit="event.preventDefault(); handlePredictSingle();">
+                            <div class="form-grid-2">
+                                <div class="form-field">
+                                    <label for="p-origin">Origin Country</label>
+                                    <input type="text" id="p-origin" value="USA" required>
+                                </div>
+                                <div class="form-field">
+                                    <label for="p-dest">Destination Country</label>
+                                    <input type="text" id="p-dest" value="USA" required>
+                                </div>
+                            </div>
+
+                            <div class="form-field">
+                                <label for="p-dist">Route Distance (km)</label>
+                                <input type="number" id="p-dist" value="1500.0" min="10" step="10" required>
+                            </div>
+
+                            <div class="form-grid-2">
+                                <div class="form-field">
+                                    <label for="p-dep">Scheduled Departure (ISO)</label>
+                                    <input type="text" id="p-dep" value="2024-06-01T10:00:00Z" required>
+                                </div>
+                                <div class="form-field">
+                                    <label for="p-arr">Scheduled Arrival (ISO)</label>
+                                    <input type="text" id="p-arr" value="2024-06-02T18:00:00Z" required>
+                                </div>
+                            </div>
+
+                            <div class="form-grid-2">
+                                <div class="form-field">
+                                    <label for="p-route">Route Type</label>
+                                    <select id="p-route">
+                                        <option value="highway" selected>highway</option>
+                                        <option value="sea">sea</option>
+                                        <option value="air">air</option>
+                                        <option value="rail">rail</option>
+                                    </select>
+                                </div>
+                                <div class="form-field">
+                                    <label for="p-vehicle">Vehicle Type</label>
+                                    <select id="p-vehicle">
+                                        <option value="truck" selected>truck</option>
+                                        <option value="ship">ship</option>
+                                        <option value="airplane">airplane</option>
+                                        <option value="train">train</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div class="form-grid-3">
+                                <div class="form-field">
+                                    <label for="p-priority">Priority Level</label>
+                                    <select id="p-priority">
+                                        <option value="standard" selected>standard</option>
+                                        <option value="express">express</option>
+                                        <option value="critical">critical</option>
+                                    </select>
+                                </div>
+                                <div class="form-field">
+                                    <label for="p-type">Shipment Type</label>
+                                    <select id="p-type">
+                                        <option value="general" selected>general</option>
+                                        <option value="hazardous">hazardous</option>
+                                        <option value="perishable">perishable</option>
+                                    </select>
+                                </div>
+                                <div class="form-field">
+                                    <label for="p-weather">Weather at Departure</label>
+                                    <select id="p-weather">
+                                        <option value="clear" selected>clear</option>
+                                        <option value="rain">rain</option>
+                                        <option value="fog">fog</option>
+                                        <option value="storm">storm</option>
+                                        <option value="snow">snow</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div class="form-field">
+                                <label for="p-carrier">Carrier Historical On-Time Rate: <span id="p-carrier-val">90%</span></label>
+                                <input type="range" id="p-carrier" min="0.5" max="1.0" step="0.01" value="0.90" oninput="document.getElementById('p-carrier-val').innerText = Math.round(this.value*100) + '%';">
+                            </div>
+
+                            <button type="submit" class="btn-primary-plan">Predict ETA & Delay Risk</button>
+                        </form>
+                    </div>
+
+                    <!-- Right: Prediction Results & Explainability -->
+                    <div class="panel-box">
+                        <h2 class="section-title">Prediction Results</h2>
+                        <div id="prediction-output-box">
+                            <div class="placeholder-prompt">Click <strong>Predict ETA & Delay Risk</strong> to evaluate features using trained ML models.</div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- TAB 3: DELAY PROPAGATION SIMULATOR -->
+            <section id="tab-simulation" class="tab-pane">
+                <div class="two-column-panel">
+                    <!-- Left: Disruption Injection Form -->
+                    <div class="panel-box">
+                        <h2 class="section-title">Scenario Parameters</h2>
+                        <div class="form-field">
+                            <label for="sim-duration">Total Scheduled Duration (mins)</label>
+                            <input type="number" id="sim-duration" value="1000.0" min="50" step="10">
+                        </div>
+                        <div class="form-grid-2">
+                            <div class="form-field">
+                                <label for="sim-route">Route</label>
+                                <select id="sim-route">
+                                    <option value="highway" selected>highway</option>
+                                    <option value="sea">sea</option>
+                                    <option value="air">air</option>
+                                    <option value="rail">rail</option>
+                                </select>
+                            </div>
+                            <div class="form-field">
+                                <label for="sim-weather">Weather (Dep)</label>
+                                <select id="sim-weather">
+                                    <option value="clear" selected>clear</option>
+                                    <option value="rain">rain</option>
+                                    <option value="storm">storm</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="form-field">
+                            <label for="sim-carrier">Carrier Reliability: <span id="sim-carrier-val">90%</span></label>
+                            <input type="range" id="sim-carrier" min="0.5" max="1.0" step="0.01" value="0.90" oninput="document.getElementById('sim-carrier-val').innerText = Math.round(this.value*100) + '%';">
+                        </div>
+
+                        <hr class="form-divider">
+                        <h3 class="subsection-title">Inject Disruption</h3>
+                        <div class="form-field">
+                            <label for="sim-stage">Target Stage</label>
+                            <select id="sim-stage">
+                                <option value="departure">departure</option>
+                                <option value="transit" selected>transit</option>
+                                <option value="customs_processing">customs_processing</option>
+                                <option value="last_mile_delivery">last_mile_delivery</option>
+                            </select>
+                        </div>
+                        <div class="form-field">
+                            <label for="sim-delay">Additional Delay (mins)</label>
+                            <input type="number" id="sim-delay" value="120.0" min="0" step="10">
+                        </div>
+
+                        <button type="button" class="btn-primary-plan" onclick="handleRunSimulation();">Run Simulation</button>
+                    </div>
+
+                    <!-- Right: Propagation Results & Stage Timeline -->
+                    <div class="panel-box">
+                        <h2 class="section-title">Propagation Results</h2>
+                        <div id="simulation-output-box">
+                            <div class="placeholder-prompt">Configure scenario parameters and click <strong>Run Simulation</strong> to view stage propagation.</div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- TAB 4: MODEL EVALUATION -->
+            <section id="tab-evaluation" class="tab-pane">
+                <div class="eval-header-row">
+                    <div>
+                        <h2 class="section-title">Evaluation Metrics & Explainability</h2>
+                        <p class="section-subtitle">Real performance benchmarks computed on held-out test splits from actual data.</p>
+                    </div>
+                    <button class="btn-secondary" onclick="loadModelEvaluation();">Refresh Metrics</button>
+                </div>
+
+                <div class="metrics-cards-grid" id="eval-metrics-grid">
+                    <div class="loading-spinner-box">Loading metrics...</div>
+                </div>
+
+                <h3 class="subsection-title" style="margin-top: 28px;">Visual Evaluation Plots</h3>
+                <div class="figures-gallery-grid" id="figures-gallery">
+                    <div class="figure-card">
+                        <h4>Actual vs Predicted ETA Delay</h4>
+                        <img src="/reports/figures/actual_vs_predicted.png" alt="Actual vs Predicted" onerror="this.src=''; this.alt='Plot generating...';">
+                        <p class="caption">Test set scatter comparing true delay minutes against Ridge model predictions.</p>
+                    </div>
+                    <div class="figure-card">
+                        <h4>Global Feature Importance</h4>
+                        <img src="/reports/figures/feature_importance.png" alt="Feature Importance" onerror="this.src=''; this.alt='Plot generating...';">
+                        <p class="caption">Permutation importance and coefficients across regression features.</p>
+                    </div>
+                    <div class="figure-card">
+                        <h4>SHAP Summary Plot</h4>
+                        <img src="/reports/figures/shap_summary.png" alt="SHAP Summary Plot" onerror="this.src=''; this.alt='Plot generating...';">
+                        <p class="caption">Directional SHAP impact values explaining individual predictions.</p>
+                    </div>
+                    <div class="figure-card">
+                        <h4>Classification Confusion Matrix</h4>
+                        <img src="/reports/figures/confusion_matrix.png" alt="Confusion Matrix" onerror="this.src=''; this.alt='Plot generating...';">
+                        <p class="caption">Delay classification performance matrix for Random Forest classifier.</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- TAB 5: DATA EXPLORER -->
+            <section id="tab-explorer" class="tab-pane">
+                <div class="explorer-header">
+                    <div>
+                        <h2 class="section-title">Dataset Explorer</h2>
+                        <p class="section-subtitle">Real shipment records from <code>logistics-shipment-delay-prediction.xlsx</code>.</p>
+                    </div>
+                    <a href="/api/dataset/download" class="btn-download-csv">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+                        Download Processed Data (CSV)
+                    </a>
+                </div>
+
+                <!-- Explorer Filter Controls -->
+                <div class="table-filters-bar">
+                    <div class="filter-item">
+                        <input type="text" id="explorer-search" placeholder="Search ID, cities, carrier, notes..." oninput="debounceExplorerSearch();">
+                    </div>
+                    <div class="filter-item">
+                        <select id="filter-route" onchange="loadExplorerData();">
+                            <option value="all">All Route Types</option>
+                            <option value="highway">Highway</option>
+                            <option value="sea">Sea</option>
+                            <option value="air">Air</option>
+                            <option value="rail">Rail</option>
+                        </select>
+                    </div>
+                    <div class="filter-item">
+                        <select id="filter-weather" onchange="loadExplorerData();">
+                            <option value="all">All Weather</option>
+                            <option value="clear">Clear</option>
+                            <option value="rain">Rain</option>
+                            <option value="fog">Fog</option>
+                            <option value="storm">Storm</option>
+                            <option value="snow">Snow</option>
+                        </select>
+                    </div>
+                    <div class="filter-item">
+                        <select id="filter-delayed" onchange="loadExplorerData();">
+                            <option value="all">All Statuses</option>
+                            <option value="delayed">Delayed Only</option>
+                            <option value="ontime">On-Time Only</option>
+                        </select>
+                    </div>
+                    <span id="explorer-count-badge" class="count-badge">Loading...</span>
+                </div>
+
+                <!-- Table Container -->
+                <div class="data-table-wrapper">
+                    <table class="real-data-table" id="explorer-table">
+                        <thead>
+                            <tr>
+                                <th>Shipment ID</th>
+                                <th>Origin</th>
+                                <th>Destination</th>
+                                <th>Route Type</th>
+                                <th>Vehicle</th>
+                                <th>Weather</th>
+                                <th>Distance (km)</th>
+                                <th>Carrier</th>
+                                <th>On-Time Rate</th>
+                                <th>Actual Delay (min)</th>
+                                <th>Status</th>
+                                <th>Operational Notes</th>
+                            </tr>
+                        </thead>
+                        <tbody id="explorer-tbody">
+                            <tr><td colspan="12" style="text-align: center; padding: 24px;">Loading real shipment records...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
+        </main>
+    </div>
+
+    <!-- Application Script -->
+    <script src="/static/js/app.js"></script>
+</body>
+</html>

@@ -1,0 +1,35 @@
+{
+  "regression_baseline": {
+    "model": "baseline_mean",
+    "n_samples": 29,
+    "mae_minutes": 30.62,
+    "rmse_minutes": 36.63,
+    "r_squared": -0.0414
+  },
+  "regression_best": {
+    "model": "ridge",
+    "n_samples": 29,
+    "mae_minutes": 13.87,
+    "rmse_minutes": 18.63,
+    "r_squared": 0.7306
+  },
+  "classification": {
+    "model": "random_forest",
+    "n_samples": 29,
+    "accuracy": 0.9655,
+    "precision": 1.0,
+    "recall": 0.9643,
+    "f1": 0.9818,
+    "confusion_matrix": [
+      [
+        1,
+        0
+      ],
+      [
+        1,
+        27
+      ]
+    ],
+    "roc_auc": 1.0
+  }
+}
